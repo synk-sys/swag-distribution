@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, LogIn, ScanLine, ShieldCheck } from "lucide-react";
+import { ChevronDown, Loader2, LogIn, ScanLine, ShieldCheck } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ThemeToggle } from "@/components/theme";
 import { useAuth } from "@/components/auth-provider";
@@ -24,11 +24,39 @@ export default function LoginPage() {
     if (actor) router.replace(actor.role === "organizer" ? "/admin" : "/scan");
   }, [actor, router]);
 
+  const [counters, setCounters] = React.useState<{ enabled: boolean; counters: string[]; codeRequired: boolean } | null>(null);
+  const [code, setCode] = React.useState("");
+  const [orgOpen, setOrgOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    fetch("/api/volunteer/session", { cache: "no-store" })
+      .then((r) => r.json())
+      .then(setCounters)
+      .catch(() => setCounters({ enabled: false, counters: [], codeRequired: false }));
+  }, []);
+
+  async function counterLogin(counter: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/volunteer/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ counter, ...(counters?.codeRequired ? { code } : {}) }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j?.error?.message ?? "Could not start the counter.");
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function demoLogin(uid: string) {
     setBusy(true);
     await fetch("/api/demo/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ uid }) });
-    if (uid === "demo-vol-b") localStorage.setItem("swag.counter", "Counter B");
-    if (uid === "demo-vol-a") localStorage.setItem("swag.counter", "Counter A");
     await refresh();
     setBusy(false);
   }
@@ -73,56 +101,81 @@ export default function LoginPage() {
         <Brand sub="Swag distribution" />
         <ThemeToggle />
       </div>
+      {(authError || error) && (
+        <p role="alert" className="rounded-md bg-bad p-3 text-sm font-medium text-bad-fg">
+          {authError ?? error}
+        </p>
+      )}
+      {info && <p className="rounded-md bg-muted p-3 text-sm">{info}</p>}
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Volunteer sign in</CardTitle>
-          <CardDescription>One {SWAG_NAME} per registered attendee.</CardDescription>
+          <CardTitle className="text-xl">Volunteers: tap your counter</CardTitle>
+          <CardDescription>No sign-in needed. One {SWAG_NAME} per registered attendee.</CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {(authError || error) && (
-            <p role="alert" className="rounded-md bg-bad p-3 text-sm font-medium text-bad-fg">
-              {authError ?? error}
-            </p>
-          )}
-          {info && <p className="rounded-md bg-muted p-3 text-sm">{info}</p>}
-          {IS_DEMO ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-sm text-muted-foreground">Demo mode: choose a fictional staff identity. No real attendee data is used.</p>
-              <Button size="lg" onClick={() => demoLogin("demo-vol-a")} disabled={busy}>
-                <ScanLine /> Volunteer · Counter A
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => demoLogin("demo-vol-b")} disabled={busy}>
-                <ScanLine /> Volunteer · Counter B
-              </Button>
-              <Button size="lg" variant="secondary" onClick={() => demoLogin("demo-organizer")} disabled={busy}>
-                <ShieldCheck /> Organizer
-              </Button>
+        <CardContent className="flex flex-col gap-3">
+          {!counters && <Loader2 className="mx-auto h-6 w-6 animate-spin" aria-label="Loading counters" />}
+          {counters && !counters.enabled && <p className="text-sm text-muted-foreground">Counter sign-in is turned off. Ask an organizer.</p>}
+          {counters?.enabled && counters.codeRequired && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="code">Counter code (from your organizer)</Label>
+              <Input id="code" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" inputMode="text" className="h-12 text-lg tracking-widest" />
             </div>
-          ) : (
-            <>
-              <form onSubmit={emailLogin} className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" />
-                </div>
-                <Button size="lg" type="submit" disabled={busy}>
-                  {busy ? <Loader2 className="animate-spin" /> : <LogIn />} Sign in
-                </Button>
-              </form>
-              <Button size="lg" variant="outline" onClick={googleLogin} disabled={busy}>
-                Continue with Google
-              </Button>
-              <Button variant="link" size="sm" onClick={reset} disabled={busy}>
-                Set or reset password
-              </Button>
-              <p className="text-xs text-muted-foreground">Access is granted by an organizer. Accounts without a role cannot see attendee data.</p>
-            </>
           )}
+          {counters?.enabled &&
+            counters.counters.map((c, i) => (
+              <Button key={c} size="xl" className="h-16 w-full" variant={i % 2 ? "outline" : "default"} onClick={() => counterLogin(c)} disabled={busy || (counters.codeRequired && code.trim().length < 4)}>
+                <ScanLine /> {c}
+              </Button>
+            ))}
         </CardContent>
+      </Card>
+
+      <Card>
+        <button
+          className="flex w-full items-center justify-between p-5 text-left font-semibold"
+          onClick={() => setOrgOpen((o) => !o)}
+          aria-expanded={orgOpen}
+        >
+          <span className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5" /> Organizer sign in
+          </span>
+          <ChevronDown className={`h-5 w-5 transition-transform ${orgOpen ? "rotate-180" : ""}`} />
+        </button>
+        {orgOpen && (
+          <CardContent className="flex flex-col gap-3">
+            {IS_DEMO ? (
+              <>
+                <p className="text-sm text-muted-foreground">Demo mode: fictional organizer, no real data.</p>
+                <Button size="lg" variant="secondary" onClick={() => demoLogin("demo-organizer")} disabled={busy}>
+                  <ShieldCheck /> Organizer (demo)
+                </Button>
+              </>
+            ) : (
+              <>
+                <form onSubmit={emailLogin} className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-12" />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="password">Password</Label>
+                    <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required className="h-12" />
+                  </div>
+                  <Button size="lg" type="submit" disabled={busy}>
+                    {busy ? <Loader2 className="animate-spin" /> : <LogIn />} Sign in
+                  </Button>
+                </form>
+                <Button size="lg" variant="outline" onClick={googleLogin} disabled={busy}>
+                  Continue with Google
+                </Button>
+                <Button variant="link" size="sm" onClick={reset} disabled={busy}>
+                  Set or reset password
+                </Button>
+              </>
+            )}
+          </CardContent>
+        )}
       </Card>
     </main>
   );

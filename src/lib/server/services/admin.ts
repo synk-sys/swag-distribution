@@ -10,6 +10,7 @@ import {
   verificationSettingsSchema,
   type Actor,
   type Registration,
+  type Settings,
 } from "@/lib/domain/types";
 import { badRequest, conflict } from "../errors";
 import type { Repo } from "../repo/types";
@@ -297,7 +298,7 @@ export async function dashboard(repo: Repo, actor: Actor | null) {
     byVolunteer,
     byCounter,
     recent,
-    settings,
+    settings: { ...settings, volunteerAccess: { ...settings.volunteerAccess, codeHash: settings.volunteerAccess.codeHash ? "set" : null } },
     attendees,
   };
 }
@@ -325,4 +326,55 @@ export async function exportCsv(repo: Repo, actor: Actor | null, kind: "attendee
 export async function auditLog(repo: Repo, actor: Actor | null, limit = 500) {
   assertRole(actor, "organizer");
   return repo.listEvents({ limit: Math.min(Math.max(1, limit), 2000) });
+}
+
+// ---------------------------------------------------------------- volunteer counter access
+
+export const volunteerAccessPatchSchema = z.object({
+  enabled: z.boolean().optional(),
+  counters: z.array(z.string().trim().min(1).max(40)).min(1).max(30).optional(),
+  /** New shared code (min 4 chars), or null to remove the code requirement. */
+  code: z.string().trim().min(4).max(100).nullable().optional(),
+  /** Sign out every counter device now. */
+  signOutAll: z.boolean().optional(),
+});
+
+const accessView = (a: Settings["volunteerAccess"]) => ({ enabled: a.enabled, counters: a.counters, codeRequired: !!a.codeHash, epoch: a.epoch });
+
+export async function getVolunteerAccess(repo: Repo, actor: Actor | null) {
+  assertRole(actor, "organizer");
+  return accessView((await repo.getSettings()).volunteerAccess);
+}
+
+export async function updateVolunteerAccess(repo: Repo, actor: Actor | null, raw: unknown, now = () => new Date()) {
+  assertRole(actor, "organizer");
+  const parsed = volunteerAccessPatchSchema.safeParse(raw);
+  if (!parsed.success) throw badRequest("Invalid counter settings (codes need at least 4 characters).");
+  const p = parsed.data;
+  const { hashCode } = await import("../volunteer-session");
+  const result = await repo.transaction(async (tx) => {
+    const s = await tx.getSettings();
+    const before = s.volunteerAccess;
+    const counters = p.counters ? [...new Set(p.counters)] : before.counters;
+    const codeChanged = p.code !== undefined;
+    const after = {
+      enabled: p.enabled ?? before.enabled,
+      counters,
+      codeHash: codeChanged ? (p.code ? hashCode(p.code) : null) : before.codeHash,
+      // Changing the code or asking to sign everyone out invalidates all counter sessions.
+      epoch: p.signOutAll || (codeChanged && p.code) ? before.epoch + 1 : before.epoch,
+    };
+    tx.setSettings({ ...s, volunteerAccess: after });
+    tx.addEvent({
+      type: "settings_change",
+      ...stamp(now()),
+      actor: actorRef(actor),
+      details: { volunteerAccess: { before: accessView(before), after: accessView(after), codeChanged, signedOutAll: after.epoch !== before.epoch } },
+    });
+    tx.bumpLive();
+    return accessView(after);
+  });
+  const { clearAccessCache } = await import("../auth");
+  clearAccessCache();
+  return result;
 }

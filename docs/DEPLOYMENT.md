@@ -45,6 +45,7 @@ Then fill in:
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public key | no |
 | `NEXT_PUBLIC_SITE_URL` | your app URL | no |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key | **yes** |
+| `SESSION_SECRET` | 32+ random characters (`openssl rand -hex 32`) for volunteer counter sessions | **yes** |
 | `DATABASE_URL` | Transaction pooler connection string | **yes** |
 
 ## 4. Create the first organizer
@@ -53,7 +54,9 @@ Then fill in:
 npx tsx --env-file=.env.local scripts/set-role.ts organizer you@example.com "Your Name"
 ```
 
-If you don't have an account yet, Supabase sends you an invite email. Use the link to set a password on `/reset-password`. Add everyone else from **/admin/staff** in the app.
+If you don't have an account yet, Supabase sends you an invite email. Use the link to set a password on `/reset-password`. Add other organizers from **/admin/staff** in the app.
+
+**Volunteers don't need accounts.** They open the app and tap their counter. Manage counters under **Inventory & rules → Volunteer counters**: choose the counter names, set a **counter code** (strongly recommended, because the repo and app URL are public), sign out all counter devices, or turn counter sign-in off.
 
 ## 5. Deploy to Vercel
 
@@ -80,7 +83,8 @@ Set the same environment variables. `NEXT_PUBLIC_*` values are baked in at **bui
 ## How the security works
 
 - Browsers only use Supabase for **signing in** and for the **Realtime change counter**. They never query attendee data.
-- Every API route checks the Supabase access token with Supabase Auth, then looks up the user's role in the `staff` table on the server. Removing someone takes effect within 15 seconds.
+- Organizers: every API route checks the Supabase access token with Supabase Auth, then looks up the role in the `staff` table on the server. Removing someone takes effect within 15 seconds.
+- Volunteer counters: one tap creates a signed, httpOnly cookie, valid for 16 hours, bound to that counter. It carries volunteer rights only (scan, look up, confirm). It is rechecked against the live settings on each request, so turning counters off, changing the code or "sign out all" takes effect within 10 seconds. Session creation is rate-limited per IP to stop code guessing.
 - All data access goes through the server's direct Postgres connection, using transactions with row locks.
 - RLS is on for every table. The only policy lets staff read `live_meta`, and grants for the browser roles are revoked on everything else. The tests in `tests/supabase-rls.integration.test.ts` verify this.
 

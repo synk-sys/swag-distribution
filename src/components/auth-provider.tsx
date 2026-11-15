@@ -51,11 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const uid = session?.user.id ?? null;
         if (uid === lastUser && uid !== null) return; // token refresh: nothing to reload
         lastUser = uid;
-        if (uid) void loadMe();
-        else {
-          setActor(null);
-          setLoading(false);
-        }
+        // No organizer session? A counter device may still have a counter cookie.
+        void loadMe();
       });
       unsub = () => data.subscription.unsubscribe();
     })().catch((e) => {
@@ -66,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadMe]);
 
   const signOut = React.useCallback(async () => {
+    await fetch("/api/volunteer/session", { method: "DELETE" });
     if (IS_DEMO) await fetch("/api/demo/session", { method: "DELETE" });
     else {
       const { supabaseBrowser } = await import("@/lib/client/supabase");

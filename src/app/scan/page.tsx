@@ -4,6 +4,7 @@ import { Volume2, VolumeX } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { NetworkIndicator } from "@/components/network-indicator";
 import { RequireRole } from "@/components/require-role";
+import { useAuth } from "@/components/auth-provider";
 import { ScanStation } from "@/components/scan-station";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,11 +23,19 @@ export default function ScanPage() {
 
 function ScanScreen() {
   const net = useNetworkStatus();
-  const [counter, setCounter] = React.useState("");
+  const { actor } = useAuth();
+  const fixedCounter = actor?.counter; // counter devices are bound to one counter
+  const [counter, setCounter] = React.useState(fixedCounter ?? "");
   const [editing, setEditing] = React.useState(false);
   const [sound, setSound] = React.useState(true);
 
   React.useEffect(() => {
+    setSound(soundEnabled());
+    if (fixedCounter) {
+      setCounter(fixedCounter);
+      setEditing(false);
+      return;
+    }
     let c = "";
     try {
       c = localStorage.getItem(COUNTER_KEY) ?? "";
@@ -35,8 +44,7 @@ function ScanScreen() {
     }
     setCounter(c);
     setEditing(!c);
-    setSound(soundEnabled());
-  }, []);
+  }, [fixedCounter]);
 
   const saveCounter = (v: string) => {
     const name = v.trim().slice(0, 40);
@@ -98,9 +106,11 @@ function ScanScreen() {
         ) : (
           <>
             <ScanStation counter={counter} network={net.state} />
-            <button className="text-center text-sm text-muted-foreground underline" onClick={() => setEditing(true)}>
-              Change counter ({counter})
-            </button>
+            {!fixedCounter && (
+              <button className="text-center text-sm text-muted-foreground underline" onClick={() => setEditing(true)}>
+                Change counter ({counter})
+              </button>
+            )}
           </>
         )}
       </main>

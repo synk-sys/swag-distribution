@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { CounterAccessCard } from "@/components/counter-access-card";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { api } from "@/lib/client/api";
 import { SWAG_NAME } from "@/lib/config";
@@ -148,6 +149,8 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <CounterAccessCard />
 
       <Card>
         <CardHeader>

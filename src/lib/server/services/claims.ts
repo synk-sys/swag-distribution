@@ -128,7 +128,8 @@ export async function claimSwag(repo: Repo, actor: Actor | null, rawInput: unkno
   assertRole(actor, ...STAFF);
   const parsed = claimInputSchema.safeParse(rawInput);
   if (!parsed.success) throw badRequest("Invalid claim request.");
-  const input = parsed.data;
+  // Counter devices are bound to their counter; the client cannot relabel claims.
+  const input = { ...parsed.data, counter: actor.counter ?? parsed.data.counter };
   const idemKey = `${actor.uid.replace(/[^A-Za-z0-9_-]/g, "_")}_${input.idempotencyKey}`;
 
   const result = await repo.transaction<ClaimResult>(async (tx) => {

@@ -6,6 +6,8 @@ export interface Actor {
   uid: string;
   name: string;
   role: Role;
+  /** Set for no-sign-in counter devices: the counter is fixed by the session, not the client. */
+  counter?: string;
 }
 
 export interface SwagClaim {
@@ -101,10 +103,22 @@ export const verificationSettingsSchema = z.object({
   requireNameCheck: z.boolean(),
 });
 
+export const volunteerAccessSchema = z.object({
+  /** Allow one-tap counter sign-in (no account) for volunteers. */
+  enabled: z.boolean(),
+  counters: z.array(z.string().trim().min(1).max(40)).min(1).max(30),
+  /** sha256 of an optional shared counter code; null = no code required. */
+  codeHash: z.string().nullable(),
+  /** Bumping this signs out every counter device. */
+  epoch: z.number().int().min(1),
+});
+export type VolunteerAccess = z.infer<typeof volunteerAccessSchema>;
+
 export const settingsSchema = z.object({
   barcode: barcodeSettingsSchema,
   eligibility: eligibilitySettingsSchema,
   verification: verificationSettingsSchema,
+  volunteerAccess: volunteerAccessSchema,
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -127,6 +141,7 @@ export const DEFAULT_SETTINGS: Settings = {
     excludeRemovedRegistrations: true,
   },
   verification: { requireNameCheck: false },
+  volunteerAccess: { enabled: true, counters: ["Counter A", "Counter B"], codeHash: null, epoch: 1 },
 };
 
 export type AuditEventType =

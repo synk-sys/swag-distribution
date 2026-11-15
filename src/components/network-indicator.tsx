@@ -3,7 +3,7 @@ import { Wifi, WifiOff } from "lucide-react";
 import type { NetState } from "@/hooks/use-network";
 import { cn } from "@/lib/utils";
 
-export function NetworkIndicator({ state, latency }: { state: NetState; latency: number | null }) {
+export function NetworkIndicator({ state, latency, showLabel }: { state: NetState; latency: number | null; showLabel?: boolean }) {
   const label = state === "online" ? "Online" : state === "slow" ? "Slow network" : "Offline";
   return (
     <span
@@ -17,7 +17,7 @@ export function NetworkIndicator({ state, latency }: { state: NetState; latency:
       )}
     >
       {state === "offline" ? <WifiOff className="h-3.5 w-3.5" /> : <Wifi className="h-3.5 w-3.5" />}
-      <span className={state === "offline" ? "" : "hidden sm:inline"}>{label}</span>
+      <span className={state === "offline" || showLabel ? "" : "hidden sm:inline"}>{label}</span>
       {latency !== null && state !== "offline" && <span className="opacity-80">{latency}ms</span>}
     </span>
   );

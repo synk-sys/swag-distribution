@@ -55,8 +55,6 @@ function ScanScreen() {
       <AppHeader
         sub={counter ? `Swag · ${counter}` : "Swag scanner"}
         right={
-          <>
-            <NetworkIndicator state={net.state} latency={net.latency} />
             <Button
               variant="ghost"
               size="icon"
@@ -69,10 +67,9 @@ function ScanScreen() {
             >
               {sound ? <Volume2 /> : <VolumeX />}
             </Button>
-          </>
         }
       />
-      <main className="mx-auto flex max-w-xl flex-col gap-3 p-3 pb-10 sm:p-4">
+      <main className="mx-auto flex max-w-xl flex-col gap-3 p-3 pb-20 sm:p-4 sm:pb-20">
         {editing ? (
           <form
             className="flex flex-col gap-3 rounded-xl border bg-card p-4"
@@ -107,6 +104,9 @@ function ScanScreen() {
           </>
         )}
       </main>
+      <footer className="fixed inset-x-0 bottom-0 z-40 flex justify-center border-t bg-card/95 px-4 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <NetworkIndicator state={net.state} latency={net.latency} showLabel />
+      </footer>
     </div>
   );
 }

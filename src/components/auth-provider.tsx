@@ -69,9 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { supabaseBrowser } = await import("@/lib/client/supabase");
       await supabaseBrowser().auth.signOut();
     }
+    const wasOrganizer = actor?.role === "organizer";
     setActor(null);
-    window.location.href = "/login";
-  }, []);
+    window.location.href = wasOrganizer ? "/admin" : "/login";
+  }, [actor]);
 
   return <Ctx.Provider value={{ actor, loading, error, mode: APP_MODE, refresh: loadMe, signOut }}>{children}</Ctx.Provider>;
 }

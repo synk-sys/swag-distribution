@@ -125,6 +125,13 @@ describe("one-tap counter sign-in over HTTP", () => {
     await setAccess({ enabled: true });
   });
 
+  it("an organizer sign-in on a counter phone takes priority over the counter session", async () => {
+    const counter = cookieOf(await post({ counter: "Counter A" }));
+    const org = await organizerCookie();
+    const dash = await (await import("@/app/api/admin/dashboard/route")).GET(new Request("http://x", { headers: { cookie: `${counter}; ${org}` } }));
+    expect(dash.status).toBe(200);
+  });
+
   it("volunteers cannot change counter access", async () => {
     const cookie = cookieOf(await post({ counter: "Counter A" }));
     const { POST } = await import("@/app/api/admin/volunteer-access/route");

@@ -77,25 +77,44 @@ export function clearStaffCache() {
  *    dual-counter demo page may act as either demo volunteer via `x-demo-actor`.
  */
 export async function getActor(req: Request): Promise<Actor | null> {
-  // No-sign-in counter device (both modes). Checked against live settings so
-  // organizers can disable counters or sign them all out.
+  // 1. Organizer / staff account (production). Takes priority over a counter cookie,
+  //    so a counter phone can sign in as an organizer.
+  const m = /^Bearer (.+)$/.exec(req.headers.get("authorization") ?? "");
+  if (m && !IS_DEMO) return staffFromToken(m[1]);
+
+  // 2. Demo organizer / demo actors.
+  if (IS_DEMO) {
+    const uid = readDemoSession(cookie(req, DEMO_COOKIE));
+    if (uid && (uid === "demo-organizer" || req.headers.get("x-demo-actor"))) {
+      const as = req.headers.get("x-demo-actor");
+      const chosen = as && (as === "demo-vol-a" || as === "demo-vol-b") ? as : uid;
+      const { uid: id, name, role, counter } = DEMO_ACTORS[chosen];
+      return { uid: id, name, role, ...(counter && chosen !== uid ? { counter } : {}) };
+    }
+  }
+
+  // 3. No-sign-in counter device (both modes). Checked against live settings so
+  //    organizers can disable counters or sign them all out.
   const counterCookie = cookie(req, VOLUNTEER_COOKIE);
   if (counterCookie) {
     const actor = readVolunteerSession(counterCookie, await volunteerAccess(), sessionSecret());
     if (actor) return actor;
   }
+
+  // 4. Remaining demo identities (demo volunteers).
   if (IS_DEMO) {
     const uid = readDemoSession(cookie(req, DEMO_COOKIE));
-    if (!uid) return null;
-    const as = req.headers.get("x-demo-actor");
-    const chosen = as && (as === "demo-vol-a" || as === "demo-vol-b") ? as : uid;
-    const { uid: id, name, role, counter } = DEMO_ACTORS[chosen];
-    return { uid: id, name, role, ...(counter && chosen !== uid ? { counter } : {}) };
+    if (uid) {
+      const { uid: id, name, role } = DEMO_ACTORS[uid];
+      return { uid: id, name, role };
+    }
   }
-  const m = /^Bearer (.+)$/.exec(req.headers.get("authorization") ?? "");
-  if (!m) return null;
+  return null;
+}
+
+async function staffFromToken(token: string): Promise<Actor | null> {
   const { getSupabaseAdmin } = await import("./supabase-admin");
-  const { data, error } = await getSupabaseAdmin().auth.getUser(m[1]);
+  const { data, error } = await getSupabaseAdmin().auth.getUser(token);
   if (error || !data.user) return null;
   const uid = data.user.id;
 
@@ -108,6 +127,6 @@ export async function getActor(req: Request): Promise<Actor | null> {
     actor = staff ? { uid, name: staff.displayName, role: staff.role as Role } : null;
     staffCache.set(uid, { actor, at: Date.now() });
   }
-  if (!actor) throw forbidden("Your account has not been given access. Ask an organizer to add you as a volunteer.");
+  if (!actor) throw forbidden("Your account has not been given access. Ask an organizer to add you.");
   return actor;
 }

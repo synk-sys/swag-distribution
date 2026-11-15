@@ -12,8 +12,8 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
   const { actor, loading, error } = useAuth();
   const router = useRouter();
   React.useEffect(() => {
-    if (!loading && !actor && !error) router.replace("/login");
-  }, [loading, actor, error, router]);
+    if (!loading && !actor && !error) router.replace(roles.includes("volunteer") ? "/login" : "/admin");
+  }, [loading, actor, error, router, roles]);
 
   if (loading || (!actor && !error)) {
     return (

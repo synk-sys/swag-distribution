@@ -54,7 +54,7 @@ Then fill in:
 npx tsx --env-file=.env.local scripts/set-role.ts organizer you@example.com "Your Name"
 ```
 
-If you don't have an account yet, Supabase sends you an invite email. Use the link to set a password on `/reset-password`. Add other organizers from **/admin/staff** in the app.
+If you don't have an account yet, Supabase sends you an invite email. Use the link to set a password on `/reset-password`. Organizers sign in at **`https://<your-domain>/admin`**; the main link shows only the volunteer counters. Add other organizers from **/admin/staff** in the app.
 
 **Volunteers don't need accounts.** They open the app and tap their counter. Manage counters under **Inventory & rules → Volunteer counters**: choose the counter names, set a **counter code** (strongly recommended, because the repo and app URL are public), sign out all counter devices, or turn counter sign-in off.
 

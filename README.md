@@ -21,7 +21,7 @@ npm run dev            # http://localhost:3000
 Demo mode is the default when `NEXT_PUBLIC_APP_MODE` is not `production`. It runs entirely in memory with **20 fictional attendees** (simulated barcodes using the fictional prefix `900001`) and never connects to Supabase. On the login page you pick one of these identities:
 
 - **Counter A** / **Counter B**: one tap and you're on the scanner. This is the same no-sign-in flow volunteers use in production.
-- **Organizer sign in → Organizer (demo)**: the dashboard, plus `/demo`, which shows both counters side by side, a one-click "race" where both counters confirm the same attendee, edge-case barcodes, and QR codes you can scan from a phone
+- **Organizer**: open any `/admin` link (e.g. `http://localhost:3000/admin`) and choose **Organizer (demo)** to reach the dashboard, plus `/demo`, which shows both counters side by side, a one-click "race" where both counters confirm the same attendee, edge-case barcodes, and QR codes you can scan from a phone
 
 Seeded demo situations: one attendee has already collected (Casey Spadina), two "Sponsor Booth Staff" tickets are ineligible, two tickets share the same barcode suffix (`5550001`) to show ambiguity rejection, and there are 15 bags in stock so you can run inventory out.
 
@@ -42,7 +42,7 @@ Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · shadcn/ui components 
 ## Security model
 
 - **Volunteers need no account.** They tap their counter on the login screen, which creates a signed, httpOnly counter session (16 h) with volunteer rights only. Claims are always labelled with the session's counter, whatever the browser sends. Organizers can require a shared **counter code**, sign out all counter devices, or turn counters off at any time.
-- **Organizers sign in** with Supabase Auth. Every API route checks the access token, then looks up the role in the `staff` table on the server. Every service function checks the role again (defense in depth).
+- **Organizers sign in** by opening any `/admin` link. The volunteer screen has no organizer option. They sign in with Supabase Auth. Every API route checks the access token, then looks up the role in the `staff` table on the server. Every service function checks the role again (defense in depth).
 - RLS is on for every table. Browsers can read **only** `live_meta`, a change counter pushed over Supabase Realtime, and only if they are staff. Grants for the browser roles are revoked on everything else. All data goes through the server's Postgres connection, and the service-role key never leaves the server.
 - Volunteers only see the attendee's name, ticket number, ticket type and a masked email. Only organizers see the full attendee list and exports.
 - Every request body is validated with Zod and size-capped. CSV uploads are limited to 5 MB and parsed on the server. CSV exports are protected against formula injection.

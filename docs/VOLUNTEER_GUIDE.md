@@ -5,7 +5,7 @@
 ## Setup (2 minutes)
 
 1. Open the app link on your phone and **tap your counter**, for example **Counter A**. You don't need an account. If the screen asks for a counter code, your organizer will give it to you.
-2. Allow camera access. Check that the badge at the top says **Online** in green.
+2. Allow camera access. Check that the badge at the bottom of the screen says **Online** in green.
 3. Tap the speaker icon if you want sounds. Phones also vibrate.
 
 ## For each attendee
@@ -26,7 +26,7 @@
 ## Good to know
 
 - If two of you scan the same person at the same time, only one of you gets RECORDED ✓. The other sees ALREADY COLLECTED.
-- If the badge at the top turns red (**OFFLINE**), stop handing out bags. Confirm is disabled until the connection returns.
+- If the badge at the bottom turns red (**OFFLINE**), stop handing out bags. Confirm is disabled until the connection returns.
 - Stay signed in for the whole shift. The session lasts 16 hours. If you get sent back to the counter screen, just tap your counter again.
 - You **cannot** undo a claim. If you made a mistake, for example confirmed the wrong person, tell an organizer right away.
 - If an organizer has turned on name checks, tick **Name matches badge / ID** before confirming.

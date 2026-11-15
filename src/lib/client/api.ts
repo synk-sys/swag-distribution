@@ -1,6 +1,6 @@
 /**
  * Browser API client.
- * - Attaches the Firebase ID token in production (token provider is injected).
+ * - Attaches the Supabase access token in production (token provider is injected).
  * - Retries ONLY on network failures / 5xx / 429, re-sending the identical body,
  *   so a claim retry carries the same idempotency key and can never double-claim.
  * - Never fabricates success: if every attempt fails, it throws NetworkError and

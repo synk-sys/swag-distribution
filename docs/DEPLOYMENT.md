@@ -1,64 +1,96 @@
-# Firebase setup and deployment
+# Supabase setup and deployment
 
-## 1. Create the Firebase project
+The app runs on **Supabase**, which provides sign-in (Auth), the database (Postgres) and live updates (Realtime). The Next.js app can be hosted on **Vercel** (recommended, no extra config) or on any Node.js host.
 
-1. In the [Firebase console](https://console.firebase.google.com), create a project, for example `devfest-toronto-swag`. App Hosting requires the **Blaze** plan.
-2. **Firestore** → Create database → *Production mode* → region `northamerica-northeast2` (Toronto) or `nam5`.
-3. **Authentication** → Get started → enable **Email/Password** and **Google**. Under Settings → Authorized domains, add your App Hosting domain once you have it.
-4. **Project settings → Your apps → Web app** → register it, then copy `apiKey`, `authDomain`, `projectId` and `appId`.
+## 1. Create the Supabase project
 
-## 2. Deploy rules and indexes
+1. At [supabase.com/dashboard](https://supabase.com/dashboard), create a new project. Pick the **Canada (Central)** region and save the database password somewhere safe.
+2. **Authentication → Sign In / Providers:** keep **Email** enabled. Optionally enable **Google**, which needs a Google OAuth client ID and secret.
+3. **Authentication → URL Configuration:**
+   - **Site URL:** your app URL, for example `https://swag.example.com`. Use `http://localhost:3000` while developing.
+   - **Redirect URLs:** add `https://swag.example.com/**` and `http://localhost:3000/**`.
+4. **Project Settings → API:** copy the **Project URL**, the **anon public** key and the **service_role** key. The service_role key is secret.
+5. **Connect** (top bar) → **Transaction pooler:** copy the connection string (port `6543`) and put your database password in it.
 
-```bash
-npx firebase login
-npx firebase use --add            # select your project
-npx firebase deploy --only firestore:rules,firestore:indexes
-```
+## 2. Create the database tables
 
-`firestore.indexes.json` contains the `events(type, atMs desc)` composite index. It also turns on a TTL policy on `idempotency.expireAt`, so old retry keys delete themselves after 24 h.
-
-## 3. Create the first organizer
+**Option A: Supabase CLI**
 
 ```bash
-gcloud auth application-default login
-FIREBASE_PROJECT_ID=your-project npx tsx scripts/set-role.ts organizer you@example.com "Your Name"
+npx supabase login
+npx supabase init            # answer "no" to the prompts; keeps the existing supabase/migrations folder
+npx supabase link --project-ref YOUR-PROJECT-REF
+npx supabase db push
 ```
 
-Then sign in on the app, either with Google or with **Set or reset password**. You can add other staff later from **/admin/staff**.
+**Option B: SQL Editor.** Paste and run these two files in order:
 
-## 4. Deploy with App Hosting
+1. `supabase/migrations/20261114000001_schema.sql`: tables, indexes, the never-negative inventory check, the append-only audit log, and RLS turned on everywhere.
+2. `supabase/migrations/20261114000002_supabase_auth_realtime.sql`: links staff to Auth users, adds the single access rule (staff may read only the change counter), and turns on Realtime for it.
 
-1. Push this repository to GitHub.
-2. In the console, go to **App Hosting** → Create backend → connect the repo and set the root directory to `/`. Pick the same region as Firestore.
-3. Edit `apphosting.yaml` and replace every `REPLACE_ME` with your web app config. These values are public identifiers, not secrets. Commit the change.
-4. App Hosting builds on every push to the live branch. The App Hosting service account already has Firestore and Auth access through Application Default Credentials, so you don't need a service-account key.
-5. Add the App Hosting domain (`*.hosted.app`, or your custom domain) to Auth → Authorized domains.
+Confirm that **Database → Publications → supabase_realtime** lists `live_meta`.
 
-Command-line alternative: `npx firebase apphosting:backends:create`, then `npx firebase deploy --only apphosting`.
+## 3. Configure the environment
 
-## 5. Verify the deployment
+```bash
+cp .env.example .env.local
+```
+
+Then fill in:
+
+| Variable | Value | Secret? |
+| --- | --- | --- |
+| `NEXT_PUBLIC_APP_MODE` | `production` | no |
+| `NEXT_PUBLIC_SUPABASE_URL` | Project URL | no |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | anon public key | no |
+| `NEXT_PUBLIC_SITE_URL` | your app URL | no |
+| `SUPABASE_SERVICE_ROLE_KEY` | service_role key | **yes** |
+| `DATABASE_URL` | Transaction pooler connection string | **yes** |
+
+## 4. Create the first organizer
+
+```bash
+npx tsx --env-file=.env.local scripts/set-role.ts organizer you@example.com "Your Name"
+```
+
+If you don't have an account yet, Supabase sends you an invite email. Use the link to set a password on `/reset-password`. Add everyone else from **/admin/staff** in the app.
+
+## 5. Deploy to Vercel
+
+1. Import the GitHub repo in Vercel. It detects Next.js automatically.
+2. Add every variable from the table above under **Settings → Environment Variables**, with `NEXT_PUBLIC_SITE_URL` set to the Vercel URL.
+3. Deploy, then add the deployed URL to Supabase's **Site URL** and **Redirect URLs**.
+
+Other Node hosts (Render, Fly.io, Cloud Run, a VM) work the same way:
+
+```bash
+npm ci && npm run build && npm start
+```
+
+Set the same environment variables. `NEXT_PUBLIC_*` values are baked in at **build** time, so rebuild after changing them.
+
+## 6. Verify the deployment
 
 - `https://<your-domain>/api/health` returns `{"ok":true}`.
-- Sign in as the organizer, open `/admin` and check that the yellow DEMO banner is **not** shown.
-- Sign in with a Google account that has no role. It must show "No access".
-- Run the whole [event-day checklist](EVENT_DAY_CHECKLIST.md) rehearsal on the production URL. Afterwards, reverse the test claims with reason "rehearsal" and bag returned = yes.
+- Sign in as the organizer. The yellow DEMO banner must **not** appear.
+- An account that is not in `staff` sees "No access".
+- Open the dashboard on one device and confirm a claim on another. The dashboard should update within about a second (Realtime), and within 5 seconds at worst through the polling fallback.
+- Run the rehearsal in [EVENT_DAY_CHECKLIST.md](EVENT_DAY_CHECKLIST.md) on the production URL.
 
-## Local development against Firebase
+## How the security works
 
-```bash
-cp .env.example .env.local         # set NEXT_PUBLIC_APP_MODE=production and the Firebase values
-gcloud auth application-default login
-npm run dev
-```
+- Browsers only use Supabase for **signing in** and for the **Realtime change counter**. They never query attendee data.
+- Every API route checks the Supabase access token with Supabase Auth, then looks up the user's role in the `staff` table on the server. Removing someone takes effect within 15 seconds.
+- All data access goes through the server's direct Postgres connection, using transactions with row locks.
+- RLS is on for every table. The only policy lets staff read `live_meta`, and grants for the browser roles are revoked on everything else. The tests in `tests/supabase-rls.integration.test.ts` verify this.
 
-## Emulator tests
-
-The Firestore emulator needs **Java 21+**.
+## Tests against Postgres
 
 ```bash
-npm run test:emulator
+# Throwaway database only. It is wiped. `npx supabase start` gives you one on port 54322.
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres npm test
 ```
 
 ## Keep demo and production separate
 
-Demo mode (`NEXT_PUBLIC_APP_MODE` unset or `demo`) stores data only in server memory and never initializes Firebase. Production mode never loads demo data, and the demo session and reset endpoints return 404 or 400 there.
+Demo mode (`NEXT_PUBLIC_APP_MODE` unset or `demo`) keeps data only in server memory and never connects to Supabase. Production mode never loads demo data, and the demo session and reset endpoints are refused there.

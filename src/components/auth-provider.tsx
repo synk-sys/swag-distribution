@@ -40,17 +40,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     let unsub = () => {};
     void (async () => {
-      const { clientAuth } = await import("@/lib/client/firebase");
-      const { onIdTokenChanged } = await import("firebase/auth");
-      const auth = clientAuth();
-      setTokenProvider(async (force) => (auth.currentUser ? auth.currentUser.getIdToken(force) : null));
-      unsub = onIdTokenChanged(auth, (u) => {
-        if (u) void loadMe();
+      const { supabaseBrowser } = await import("@/lib/client/supabase");
+      const sb = supabaseBrowser();
+      setTokenProvider(async (force) => {
+        if (force) return (await sb.auth.refreshSession()).data.session?.access_token ?? null;
+        return (await sb.auth.getSession()).data.session?.access_token ?? null;
+      });
+      let lastUser: string | null = null;
+      const { data } = sb.auth.onAuthStateChange((_event, session) => {
+        const uid = session?.user.id ?? null;
+        if (uid === lastUser && uid !== null) return; // token refresh: nothing to reload
+        lastUser = uid;
+        if (uid) void loadMe();
         else {
           setActor(null);
           setLoading(false);
         }
       });
+      unsub = () => data.subscription.unsubscribe();
     })().catch((e) => {
       setError(String(e?.message ?? e));
       setLoading(false);
@@ -61,8 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = React.useCallback(async () => {
     if (IS_DEMO) await fetch("/api/demo/session", { method: "DELETE" });
     else {
-      const { clientAuth } = await import("@/lib/client/firebase");
-      await clientAuth().signOut();
+      const { supabaseBrowser } = await import("@/lib/client/supabase");
+      await supabaseBrowser().auth.signOut();
     }
     setActor(null);
     window.location.href = "/login";

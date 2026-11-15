@@ -17,7 +17,7 @@ export type NewAuditEvent = Omit<AuditEvent, "id"> & { id?: string };
  * A serializable transaction. All reads see a consistent snapshot; writes are
  * buffered and applied atomically only if the callback resolves. If another
  * transaction changes something we read, the whole callback is retried
- * (Firestore) or never interleaves in the first place (memory store).
+ * (Postgres, on deadlock/serialization failure) or never interleaves in the first place (memory store).
  */
 export interface Tx {
   getRegistration(ticketNumber: string): Promise<Registration | null>;
@@ -44,7 +44,7 @@ export interface StaffMember {
 }
 
 export interface Repo {
-  readonly kind: "memory" | "firestore";
+  readonly kind: "memory" | "postgres";
   transaction<T>(fn: (tx: Tx) => Promise<T>): Promise<T>;
 
   getSettings(): Promise<Settings>;
@@ -71,6 +71,7 @@ export interface Repo {
   bumpLive(): Promise<void>;
 
   listStaff(): Promise<StaffMember[]>;
+  getStaff(uid: string): Promise<StaffMember | null>;
   upsertStaff(m: StaffMember): Promise<void>;
   removeStaff(uid: string): Promise<void>;
 }

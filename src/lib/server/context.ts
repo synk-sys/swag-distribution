@@ -13,9 +13,9 @@ async function create(): Promise<Repo> {
     await seedDemo(repo);
     return repo;
   }
-  const { getAdminDb } = await import("./firebase-admin");
-  const { FirestoreRepo } = await import("./repo/firestore");
-  return new FirestoreRepo(getAdminDb());
+  const { getPool } = await import("./supabase-admin");
+  const { PostgresRepo } = await import("./repo/postgres");
+  return new PostgresRepo(getPool());
 }
 
 export function getRepo(): Promise<Repo> {

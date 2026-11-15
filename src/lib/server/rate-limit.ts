@@ -1,5 +1,5 @@
 /**
- * Fixed-window, per-instance rate limiter. App Hosting may run several instances,
+ * Fixed-window, per-instance rate limiter. The host may run several instances,
  * so the effective limit is (limit × instances); it exists to stop runaway
  * clients and scripted enumeration, not as a hard quota.
  */

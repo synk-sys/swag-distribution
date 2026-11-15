@@ -33,45 +33,37 @@ export default function LoginPage() {
     setBusy(false);
   }
 
-  async function withFirebase(fn: () => Promise<void>) {
+  async function withSupabase(fn: () => Promise<void>) {
     setBusy(true);
     setError(null);
     try {
       await fn();
     } catch (e) {
-      const code = (e as { code?: string }).code ?? "";
-      setError(
-        code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found")
-          ? "Email or password is incorrect."
-          : code.includes("too-many-requests")
-            ? "Too many attempts. Wait a minute and try again."
-            : (e as Error).message,
-      );
+      const m = (e as Error).message ?? "";
+      setError(/invalid login credentials/i.test(m) ? "Email or password is incorrect." : /rate limit|too many/i.test(m) ? "Too many attempts. Wait a minute and try again." : m);
     } finally {
       setBusy(false);
     }
   }
+  const sb = async () => (await import("@/lib/client/supabase")).supabaseBrowser();
 
   const emailLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    void withFirebase(async () => {
-      const { clientAuth } = await import("@/lib/client/firebase");
-      const { signInWithEmailAndPassword } = await import("firebase/auth");
-      await signInWithEmailAndPassword(clientAuth(), email.trim(), password);
+    void withSupabase(async () => {
+      const { error } = await (await sb()).auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
     });
   };
   const googleLogin = () =>
-    withFirebase(async () => {
-      const { clientAuth } = await import("@/lib/client/firebase");
-      const { GoogleAuthProvider, signInWithPopup } = await import("firebase/auth");
-      await signInWithPopup(clientAuth(), new GoogleAuthProvider());
+    withSupabase(async () => {
+      const { error } = await (await sb()).auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/login` } });
+      if (error) throw error;
     });
   const reset = () =>
-    withFirebase(async () => {
+    withSupabase(async () => {
       if (!email.trim()) throw new Error("Enter your email first.");
-      const { clientAuth } = await import("@/lib/client/firebase");
-      const { sendPasswordResetEmail } = await import("firebase/auth");
-      await sendPasswordResetEmail(clientAuth(), email.trim());
+      const { error } = await (await sb()).auth.resetPasswordForEmail(email.trim(), { redirectTo: `${window.location.origin}/reset-password` });
+      if (error) throw error;
       setInfo("If that email belongs to a staff account, a password link was sent.");
     });
 

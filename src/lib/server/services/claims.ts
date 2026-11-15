@@ -132,8 +132,11 @@ export async function claimSwag(repo: Repo, actor: Actor | null, rawInput: unkno
   const idemKey = `${actor.uid.replace(/[^A-Za-z0-9_-]/g, "_")}_${input.idempotencyKey}`;
 
   const result = await repo.transaction<ClaimResult>(async (tx) => {
-    const prior = await tx.getIdempotency(idemKey);
+    // Lock order matters (Postgres row locks): registration first, then inventory.
+    // The idempotency record is read AFTER the registration lock is held, so a
+    // concurrent retry of the same request waits and then sees the first result.
     const reg = await tx.getRegistration(input.ticketNumber);
+    const prior = await tx.getIdempotency(idemKey);
     const settings = await tx.getSettings();
     const inv = await tx.getInventory();
 

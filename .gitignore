@@ -41,8 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# firebase
-firestore-debug.log
-ui-debug.log
-firebase-debug.log
-.firebase/
+# supabase
+supabase/.temp/
+supabase/.branches/

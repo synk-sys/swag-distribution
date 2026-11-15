@@ -37,7 +37,7 @@ export default function StaffPage() {
     setMsg(null);
     try {
       await api("/api/admin/staff", { body: { email, displayName: name, role } });
-      setMsg({ ok: true, text: `${email} can now sign in as ${role}. They can use Google sign-in or “Set or reset password” on the login page.` });
+      setMsg({ ok: true, text: `${email} can now sign in as ${role}. New accounts receive an invite email to set a password.` });
       setEmail("");
       setName("");
       await load();
@@ -63,7 +63,7 @@ export default function StaffPage() {
       <Card>
         <CardHeader>
           <CardTitle>Add volunteer or organizer</CardTitle>
-          <CardDescription>Roles are Firebase Auth custom claims, enforced on the server and in Firestore rules. Volunteers can scan and confirm only.</CardDescription>
+          <CardDescription>Roles live in the staff table and are checked on the server for every request. New people get an email invite to set a password. Volunteers can scan and confirm only.</CardDescription>
         </CardHeader>
         <CardContent>
           {IS_DEMO ? (

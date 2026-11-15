@@ -23,7 +23,7 @@ export interface FaultHooks {
 /**
  * In-memory repository used for DEMO MODE and automated tests.
  * Transactions are fully serialized with a mutex, which gives the same
- * guarantee Firestore's serializable transactions give for our access pattern.
+ * guarantee Postgres row locks give for our access pattern.
  */
 export class MemoryRepo implements Repo {
   readonly kind = "memory" as const;
@@ -154,6 +154,9 @@ export class MemoryRepo implements Repo {
   }
   async listStaff() {
     return [...this.staff.values()].map(clone);
+  }
+  async getStaff(uid: string) {
+    return clone(this.staff.get(uid) ?? null);
   }
   async upsertStaff(m: StaffMember) {
     this.staff.set(m.uid, clone(m));

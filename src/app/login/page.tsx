@@ -111,7 +111,7 @@ export default function LoginPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">Volunteers: tap your counter</CardTitle>
-          <CardDescription>No sign-in needed. One {SWAG_NAME} per registered attendee.</CardDescription>
+          <CardDescription>One {SWAG_NAME} per registered attendee.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {!counters && <Loader2 className="mx-auto h-6 w-6 animate-spin" aria-label="Loading counters" />}
